@@ -105,27 +105,29 @@ void readNode(List* list) {
     }
 }
 
+void showFilmInfo(Film* film) {
+    printf("ID %d:\n", film->id);
+    printf("%s\n", film->nume);
+    printf("Descriere: %s\n", film->descriere);
+    printf("Limba: %s\n", film->limba);
+    printf("Genuri: ");
+
+    for (int j = 0; j < film->genuriSize; j++) {
+        if (j + 1 == film->genuriSize) {
+            printf("%s", film->genuri[j]);
+            break;
+        }
+        printf("%s, ", film->genuri[j]);
+    }
+
+    printf("\nRating: %.2f", film->rating);
+    printf("\n\n");
+}
+
 void displayNodes(Node* head) {
     if (head == NULL) return;
 
-    Film film = *head->data;
-
-    printf("ID %d:\n", film.id);
-    printf("%s\n", film.nume);
-    printf("Descriere: %s\n", film.descriere);
-    printf("Limba: %s\n", film.limba);
-    printf("Genuri: ");
-
-    for (int j = 0; j < film.genuriSize; j++) {
-        if (j + 1 == film.genuriSize) {
-            printf("%s", film.genuri[j]);
-            break;
-        }
-        printf("%s, ", film.genuri[j]);
-    }
-
-    printf("\nRating: %.2f", film.rating);
-    printf("\n\n");
+    showFilmInfo(head->data);
 
     if (head->right != NULL) {
         displayNodes(head->right);
