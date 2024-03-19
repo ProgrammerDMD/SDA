@@ -1,42 +1,88 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+typedef struct Film {
+    int id;
+    char nume[30];
+    char descriere[1024];
+    char limba[20];
+
+    char** genuri;
+    int genuriSize;
+
+    float rating;
+
+    struct Film* next;
+} Film;
+
 typedef struct Node {
-    int data;
+    Film* data;
     struct Node* left;
     struct Node* right;
 } Node;
 
 typedef struct List {
     Node* head;
+    int size;
 } List;
 
-Node* createNode() {
-    int data;
-    printf("Care este marimea acestui nod? ");
-    scanf("%d", &data);
+Film* createFilm(int id) {
+    system("cls");
 
+    Film* film = malloc(sizeof(Film));
+    film->id = id;
+
+    printf("Care este numele filmului? ");
+    scanf(" %[^\n]30s", film->nume);
+
+    printf("Care este descrierea filmului? ");
+    scanf(" %[^\n]1024s", film->descriere);
+
+    printf("Care este limba filmului? ");
+    scanf(" %20s", film->limba);
+
+    printf("Cate genuri are filmul? ");
+    scanf("%d", &film->genuriSize);
+
+    printf("Introdu %d genuri separate prin spatiu: ", film->genuriSize);
+    film->genuri = malloc(sizeof(char*) * film->genuriSize);
+
+    for (int i = 0; i < film->genuriSize; i++) {
+        film->genuri[i] = malloc(sizeof(char) * 30);
+        scanf("%30s", film->genuri[i]);
+    }
+
+    printf("Care este rating-ul acestui film? ");
+    scanf("%f", &film->rating);
+
+    film->next = NULL;
+    return film;
+}
+
+Node* createNode(int id) {
     Node* node = malloc(sizeof(Node));
-    node->data = data;
+    node->data = createFilm(id);
     node->left = NULL;
     node->right = NULL;
     return node;
 }
 
-Node* addNode(Node* head) {
+Node* addNode(List* list, Node* head) {
     if (head->right == NULL) {
-        Node* node = createNode();
+        Node* node = createNode(list->size);
         head->right = node;
+        list->size += 1;
         return node;
     }
 
     if (head->left == NULL) {
-        Node* node = createNode();
+        Node* node = createNode(list->size);
         head->left = node;
+        list->size += 1;
         return node;
     }
 
-    return addNode(head->right);
+    return addNode(list, head->right);
 }
 
 void readNode(List* list) {
@@ -48,19 +94,39 @@ void readNode(List* list) {
 
     if (n >= 1 && list->head == NULL) {
         n -= 1;
-        Node* node = createNode();
+
+        Node* node = createNode(list->size);
         list->head = node;
+        list->size += 1;
     }
 
     for (int i = 0; i < n; i++) {
-        addNode(list->head);
+        addNode(list, list->head);
     }
 }
 
 void displayNodes(Node* head) {
     if (head == NULL) return;
 
-    printf("%d ", head->data);
+    Film film = *head->data;
+
+    printf("ID %d:\n", film.id);
+    printf("%s\n", film.nume);
+    printf("Descriere: %s\n", film.descriere);
+    printf("Limba: %s\n", film.limba);
+    printf("Genuri: ");
+
+    for (int j = 0; j < film.genuriSize; j++) {
+        if (j + 1 == film.genuriSize) {
+            printf("%s", film.genuri[j]);
+            break;
+        }
+        printf("%s, ", film.genuri[j]);
+    }
+
+    printf("\nRating: %.2f", film.rating);
+    printf("\n\n");
+
     if (head->right != NULL) {
         displayNodes(head->right);
     }
@@ -88,6 +154,7 @@ int main() {
 
     List* list = malloc(sizeof(List));
     list->head = NULL;
+    list->size = 0;
 
     int optiune;
     while ((optiune = meniu())) {
@@ -97,7 +164,6 @@ int main() {
         if (optiune == 2) {
             system("cls");
             displayNodes(list->head);
-            printf("\n");
             system("pause");
         }
     }
