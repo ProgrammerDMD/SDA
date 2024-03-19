@@ -128,14 +128,24 @@ void displayNodes(Node* head) {
     if (head == NULL) return;
 
     showFilmInfo(head->data);
+    displayNodes(head->right);
+    displayNodes(head->left);
+}
 
-    if (head->right != NULL) {
-        displayNodes(head->right);
+int getTreeDepth(Node* node) {
+    int sum = 0;
+    if (node == NULL) return sum;
+
+    int right = getTreeDepth(node->right);
+    int left = getTreeDepth(node->left);
+
+    if (right >= left) {
+        sum += right;
+    } else {
+        sum += left;
     }
 
-    if (head->left != NULL) {
-        displayNodes(head->left);
-    }
+    return sum + 1;
 }
 
 int meniu() {
@@ -145,6 +155,7 @@ int meniu() {
     printf("0. Iesire din program\n");
     printf("1. Citeste de la tastatura unul sau mai multe elemente\n");
     printf("2. Afiseaza elementele arborelui\n");
+    printf("3. Afiseaza adancimea arborelui\n");
 
     int optiune;
     scanf("%d", &optiune);
@@ -166,6 +177,11 @@ int main() {
         if (optiune == 2) {
             system("cls");
             displayNodes(list->head);
+            system("pause");
+        }
+        if (optiune == 3) {
+            system("cls");
+            printf("Adancimea arboreului este: %d\n", getTreeDepth(list->head));
             system("pause");
         }
     }
