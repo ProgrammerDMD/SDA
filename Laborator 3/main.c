@@ -146,6 +146,19 @@ void displayNodes(Node* head) {
     displayNodes(head->left);
 }
 
+int getTreeDepth(Node* node, int sum) {
+    if (node == NULL) return sum;
+
+    int right = getTreeDepth(node->right, sum + 1);
+    int left = getTreeDepth(node->left, sum + 1);
+
+    if (right >= left) {
+        return right;
+    } else {
+        return left;
+    }
+}
+
 int getNodeDepth(Node* base, Node* node, int sum) {
     if (node == NULL) return -1;
     if (node == base) return sum;
@@ -159,11 +172,13 @@ int getNodeDepth(Node* base, Node* node, int sum) {
     return -1;
 }
 
-int getTreeDepth(Node* node, int sum) {
+int getNodeHeight(Node* root, Node* node, int sum) {
     if (node == NULL) return sum;
 
-    int right = getTreeDepth(node->right, sum + 1);
-    int left = getTreeDepth(node->left, sum + 1);
+    int right = getTreeDepth(node->right, 0);
+    int left = getTreeDepth(node->left, 0);
+
+    // Calculate node depth
 
     if (right >= left) {
         return right;
