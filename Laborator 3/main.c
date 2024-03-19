@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct Film {
     int id;
@@ -124,6 +125,19 @@ void showFilmInfo(Film* film) {
     printf("\n\n");
 }
 
+Node* searchNode(Node* head, char nume[30]) {
+    if (head == NULL) return NULL;
+    if (strcmp(head->data->nume, nume) == 0) return head;
+
+    Node* right = searchNode(head->right, nume);
+    Node* left = searchNode(head->left, nume);
+
+    if (right != NULL) return right;
+    if (left != NULL) return left;
+
+    return NULL;
+}
+
 void displayNodes(Node* head) {
     if (head == NULL) return;
 
@@ -153,9 +167,10 @@ int meniu() {
 
     printf("Selecteaza o optiune:\n");
     printf("0. Iesire din program\n");
-    printf("1. Citeste de la tastatura unul sau mai multe elemente\n");
+    printf("1. Citeste de la tastatura unul sau mai multe filme\n");
     printf("2. Afiseaza elementele arborelui\n");
     printf("3. Afiseaza adancimea arborelui\n");
+    printf("4. Cauta un film dupa nume\n");
 
     int optiune;
     scanf("%d", &optiune);
@@ -170,18 +185,37 @@ int main() {
     list->size = 0;
 
     int optiune;
+    char search[30];
     while ((optiune = meniu())) {
         if (optiune == 1) {
             readNode(list);
         }
+
         if (optiune == 2) {
             system("cls");
+            printf("Lista filmelor este:\n");
             displayNodes(list->head);
             system("pause");
         }
+
         if (optiune == 3) {
             system("cls");
             printf("Adancimea arboreului este: %d\n", getTreeDepth(list->head));
+            system("pause");
+        }
+
+        if (optiune == 4) {
+            system("cls");
+
+            printf("Care este numele filmului? ");
+            scanf(" %[^\n]s", search);
+
+            Node* node = searchNode(list->head, search);
+            if (node == NULL) {
+                printf("Acest film nu exista!\n");
+            } else {
+                showFilmInfo(node->data);
+            }
             system("pause");
         }
     }
