@@ -159,12 +159,12 @@ int getTreeDepth(Node* node, int sum) {
     }
 }
 
-int getNodeDepth(Node* base, Node* node, int sum) {
-    if (node == NULL) return -1;
-    if (node == base) return sum;
+int getNodeDepth(char* nume, Node* root, int sum) {
+    if (root == NULL) return -1;
+    if (strcmp(root->data->nume, nume) == 0) return sum;
 
-    int right = getNodeDepth(base, node->right, sum + 1);
-    int left = getNodeDepth(base, node->left, sum + 1);
+    int right = getNodeDepth(nume, root->right, sum + 1);
+    int left = getNodeDepth(nume, root->left, sum + 1);
 
     if (right != -1) return right;
     if (left != -1) return left;
@@ -172,13 +172,12 @@ int getNodeDepth(Node* base, Node* node, int sum) {
     return -1;
 }
 
-int getNodeHeight(Node* root, Node* node, int sum) {
-    if (node == NULL) return sum;
+int getNodeHeight(Node* node) {
+    if (node == NULL) return 0;
+    if (node->right == 0 && node->left == 0) return 0;
 
-    int right = getTreeDepth(node->right, 0);
-    int left = getTreeDepth(node->left, 0);
-
-    // Calculate node depth
+    int right = getNodeHeight(node->right) + 1;
+    int left = getNodeHeight(node->left) + 1;
 
     if (right >= left) {
         return right;
@@ -197,6 +196,7 @@ int meniu() {
     printf("3. Afiseaza adancimea arborelui\n");
     printf("4. Cauta un film dupa nume\n");
     printf("5. Afiseaza adancimea unui nod\n");
+    printf("6. Afiseaza lungimea unui nod\n");
 
     int optiune;
     scanf("%d", &optiune);
@@ -251,12 +251,28 @@ int main() {
             printf("Care este numele filmului? ");
             scanf(" %[^\n]s", search);
 
+            int depth = getNodeDepth(search, list->head, 0);
+            if (depth == -1) {
+                printf("Acest film nu exista!\n");
+            } else {
+                printf("Adancimea acestui nod este: %d\n", depth);
+            }
+            system("pause");
+        }
+
+        if (optiune == 6) {
+            system("cls");
+
+            printf("Care este numele filmului? ");
+            scanf(" %[^\n]s", search);
+
             Node* node = searchNode(list->head, search);
             if (node == NULL) {
                 printf("Acest film nu exista!\n");
             } else {
-                printf("Adancimea acestui nod este: %d\n", getNodeDepth(node, list->head, 0));
+                printf("Lungimea acestui nod este: %d\n", getNodeHeight(node));
             }
+
             system("pause");
         }
     }
