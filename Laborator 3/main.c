@@ -12,8 +12,6 @@ typedef struct Film {
     int genuriSize;
 
     float rating;
-
-    struct Film* next;
 } Film;
 
 typedef struct Node {
@@ -56,7 +54,6 @@ Film* createFilm(int id) {
     printf("Care este rating-ul acestui film? ");
     scanf("%f", &film->rating);
 
-    film->next = NULL;
     return film;
 }
 
@@ -142,8 +139,8 @@ void displayNodes(Node* head) {
     if (head == NULL) return;
 
     showFilmInfo(head->data);
-    displayNodes(head->right);
     displayNodes(head->left);
+    displayNodes(head->right);
 }
 
 int getTreeDepth(Node* node, int sum) {
@@ -186,6 +183,31 @@ int getNodeHeight(Node* node) {
     }
 }
 
+void showLeaves(Node* node) {
+    if (node != NULL && node->right == NULL && node->left == NULL) {
+        showFilmInfo(node->data);
+    } else if (node != NULL) {
+        showLeaves(node->left);
+        showLeaves(node->right);
+    }
+}
+
+void deleteTree(List* list, Node* node) {
+    if (node == NULL) return;
+    deleteTree(list, node->right);
+    deleteTree(list, node->left);
+
+    Film* film = node->data;
+    for (int i = 0; i < film->genuriSize; i++) {
+        free(film->genuri[i]);
+    }
+
+    free(film->genuri);
+    free(node->data);
+    free(node);
+    list->size -= 1;
+}
+
 int meniu() {
     system("cls");
 
@@ -196,7 +218,9 @@ int meniu() {
     printf("3. Afiseaza adancimea arborelui\n");
     printf("4. Cauta un film dupa nume\n");
     printf("5. Afiseaza adancimea unui nod\n");
-    printf("6. Afiseaza lungimea unui nod\n");
+    printf("6. Afiseaza inaltimea unui nod\n");
+    printf("7. Afiseaza frunzele arborelui\n");
+    printf("8. Sterge arborele\n");
 
     int optiune;
     scanf("%d", &optiune);
@@ -270,8 +294,28 @@ int main() {
             if (node == NULL) {
                 printf("Acest film nu exista!\n");
             } else {
-                printf("Lungimea acestui nod este: %d\n", getNodeHeight(node));
+                printf("Inaltimea acestui nod este: %d\n", getNodeHeight(node));
             }
+
+            system("pause");
+        }
+
+        if (optiune == 7) {
+            system("cls");
+
+            printf("Frunzele arborelui sunt:\n");
+            showLeaves(list->head);
+
+            system("pause");
+        }
+
+        if (optiune == 8) {
+            system("cls");
+
+            deleteTree(list, list->head);
+            list->head = NULL;
+
+            printf("Arborele a fost eliberat!\n");
 
             system("pause");
         }
