@@ -22,10 +22,7 @@ typedef struct Queue {
 } Queue;
 
 typedef struct Document {
-    unsigned int id;
-
-//    char* name;
-
+    int id;
     int rows;
     int printedRows;
 } Document;
@@ -34,25 +31,59 @@ typedef struct Printer {
     int id;
     int speed;
 
-    int queueSize;
-    Queue* queue;
-    LinkedList* list;
+    int documentsSize;
+    Queue* documentsQueue;
+    LinkedList* printers;
 
     struct Printer* right;
     struct Printer* left;
 } Printer;
-
-typedef struct ThreadStartDetails {
-    Printer* head;
-    int maxThreads;
-    int jobId;
-} ThreadStartDetails;
 
 typedef struct PrintingDetails {
     int largestPrintingTime, lowestPrintingTime, largestRowSize, lowestRowSize;
     long averagePrintingTime;
     double ratio;
 } PrintingDetails;
+
+typedef struct ThreadStartDetails {
+    Printer* head;
+    int maxThreads;
+    int jobId;
+    int* threadsResult;
+} ThreadStartDetails;
+
+Document* createDocument(int id, int* maxRows);
+Printer* createPrinter(int id, int* minSpeed, int* maxSpeed);
+Node* createNode(void* data);
+Queue* createQueue();
+LinkedList* createList(Node* node);
+void push_printer(Printer* head, Printer* printer);
+void push_front(LinkedList* list, Node* node);
+void push_back(Queue* queue, Node* node);
+Node* pop_front(Queue* queue);
+
+Document* createDocument(int id, int* maxRows) {
+    Document* document = malloc(sizeof(Document));
+    document->id = id;
+    document->printedRows = 0;
+    document->rows = rand() % (*maxRows) + 1;
+    return document;
+}
+
+Printer* createPrinter(int id, int* minSpeed, int* maxSpeed) {
+    Printer* printer = malloc(sizeof(Printer));
+    printer->id = id;
+    printer->speed = rand() % (*maxSpeed - *minSpeed) + *minSpeed;
+
+    printer->documentsSize = 0;
+    printer->documentsQueue = createQueue();
+
+    printer->printers = NULL;
+    printer->right = NULL;
+    printer->left = NULL;
+
+    return printer;
+}
 
 Node* createNode(void* data) {
     Node* node = malloc(sizeof(Node));
@@ -72,20 +103,6 @@ LinkedList* createList(Node* node) {
     return list;
 }
 
-void ll_push_front(LinkedList* list, Node* node) {
-    Node* oldHead = list->head;
-    if (list->head->next == list->head) {
-        list->head = node;
-        node->next = oldHead;
-        list->tail = oldHead;
-        return;
-    }
-
-    list->head = node;
-    node->next = oldHead;
-    list->tail->next = node;
-}
-
 Queue* createQueue() {
     Queue* queue = malloc(sizeof(Queue));
     queue->head = NULL;
@@ -94,65 +111,67 @@ Queue* createQueue() {
     return queue;
 }
 
-void q_push_back(Queue* queue, Node* node) {
-    if (queue->head == NULL) {
-        queue->head = node;
-        return;
-    }
+Queue* allocateDocuments(int totalDocuments, int maxRows, PrintingDetails* details) {
+    Queue* queue = createQueue();
 
-    if (queue->tail == NULL) {
-        queue->tail = node;
-        queue->head->next = node;
-        return;
-    }
+    details->largestRowSize = 0;
+    details->lowestRowSize = INT_MAX;
 
-    queue->tail->next = node;
-    queue->tail = node;
+    for (int i = 0; i < totalDocuments; i++) {
+        Document* document = createDocument(i, &maxRows);
+
+        if (document->rows > details->largestRowSize) {
+            details->largestRowSize = document->rows;
+        }
+
+        if (document->rows < details->lowestRowSize) {
+            details->lowestRowSize = document->rows;
+        }
+
+        push_back(queue, createNode(document));
+    }
+    return queue;
 }
 
-Node* q_pop_front(Queue* queue) {
-    if (queue->head == NULL) return NULL;
-
-    Node* node = queue->head;
-    if (node->next == queue->tail) {
-        queue->head = queue->tail;
-        queue->tail = NULL;
-    } else if (node->next != NULL) {
-        queue->head = node->next;
+Printer* allocatePrinters(int totalPrinters, int minSpeed, int maxSpeed, PrintingDetails* details) {
+    if (totalPrinters == 0) {
+        printf("Numarul de printere nu poate sa fie 0!");
+        exit(-1);
     }
 
-    node->next = NULL;
-    return node;
-}
+    Printer* head = createPrinter(0, &minSpeed, &maxSpeed);
+    details->averagePrintingTime = 0;
 
-Printer* createPrinter(int id, int* maxSpeed) {
-    Printer* printer = malloc(sizeof(Printer));
+    details->largestPrintingTime = head->speed;
+    details->lowestPrintingTime = head->speed;
 
-    printer->id = id;
-    printer->speed = rand() % (*maxSpeed) + 1;
+    for (int i = 1; i < totalPrinters; i++) {
+        Printer* printer = createPrinter(i, &minSpeed, &maxSpeed);
 
-    printer->queueSize = 0;
-    printer->queue = createQueue();
-    printer->right = NULL;
-    printer->left = NULL;
-    printer->list = NULL;
+        if (printer->speed > details->largestPrintingTime) {
+            details->largestPrintingTime = printer->speed;
+        }
 
-    return printer;
-}
+        if (printer->speed < details->lowestPrintingTime) {
+            details->lowestPrintingTime = printer->speed;
+        }
 
-Document* createDocument(int id, int* maxRows) {
-    Document* document = malloc(sizeof(Document));
-    document->id = id;
-//    document->name = NULL;
-    document->printedRows = 0;
-    document->rows = rand() % (*maxRows) + 1;
-    return document;
+        details->averagePrintingTime += printer->speed;
+        push_printer(head, printer);
+    }
+
+    details->averagePrintingTime /= totalPrinters;
+    details->averagePrintingTime /= 100;
+
+    return head;
 }
 
 void push_printer(Printer* head, Printer* printer) {
+    if (head == NULL) return;
+
     if (head->speed == printer->speed) {
-        if (head->list == NULL) head->list = createList(createNode(head));
-        ll_push_front(head->list, createNode(printer));
+        if (head->printers == NULL) head->printers = createList(createNode(head));
+        push_front(head->printers, createNode(printer));
         return;
     }
 
@@ -171,62 +190,89 @@ void push_printer(Printer* head, Printer* printer) {
     }
 }
 
-Printer* allocatePrinters(int totalPrinters, int maxSpeed, PrintingDetails* details) {
-    if (totalPrinters == 0) {
-        printf("Numarul de printere nu poate sa fie 0!");
-        exit(-1);
+void push_front(LinkedList* list, Node* node) {
+    if (list == NULL) return;
+
+    Node* oldHead = list->head;
+    if (list->head->next == list->head) {
+        list->head = node;
+        node->next = oldHead;
+        list->tail = oldHead;
+        oldHead->next = list->head;
+        return;
     }
 
-    Printer* head = createPrinter(0, &maxSpeed);
-    details->averagePrintingTime = 0;
-
-    details->largestPrintingTime = head->speed;
-    details->lowestPrintingTime = head->speed;
-
-    for (int i = 1; i < totalPrinters; i++) {
-        Printer* printer = createPrinter(i, &maxSpeed);
-
-        if (printer->speed > details->largestPrintingTime) {
-            details->largestPrintingTime = printer->speed;
-        }
-
-        if (printer->speed < details->lowestPrintingTime) {
-            details->lowestPrintingTime = printer->speed;
-        }
-
-        details->averagePrintingTime += printer->speed;
-        push_printer(head, printer);
-    }
-
-    details->averagePrintingTime /= totalPrinters;
-    details->averagePrintingTime /= 20;
-
-    return head;
+    list->head = node;
+    node->next = oldHead;
+    list->tail->next = node;
 }
 
-Queue* allocateDocuments(int totalDocuments, int maxRows, PrintingDetails* details) {
-    Queue* queue = createQueue();
+void push_back(Queue* queue, Node* node) {
+    if (queue == NULL) return;
 
-    details->largestRowSize = 0;
-    details->lowestRowSize = INT_MIN;
-
-    for (int i = 0; i < totalDocuments; i++) {
-        Document* document = createDocument(i, &maxRows);
-
-        if (document->rows < details->largestRowSize) {
-            details->largestRowSize = document->rows;
-        }
-
-        if (document->rows > details->lowestRowSize) {
-            details->lowestRowSize = document->rows;
-        }
-
-        q_push_back(queue, createNode(document));
+    queue->size += 1;
+    if (queue->head == NULL) {
+        queue->head = node;
+        return;
     }
-    return queue;
+
+    if (queue->tail == NULL) {
+        queue->tail = node;
+        queue->head->next = node;
+        return;
+    }
+
+    queue->tail->next = node;
+    queue->tail = node;
 }
 
-Printer* findPrinterByApproximateTime(Printer* head, int* time, int* lowerSpeed, int* upperSpeed) {
+Node* pop_front(Queue* queue) {
+    if (queue->head == NULL) return NULL;
+
+    queue->size -= 1;
+
+    Node* node = queue->head;
+    if (node->next == queue->tail) {
+        queue->head = queue->tail;
+        queue->tail = NULL;
+    } else if (node->next != NULL) {
+        queue->head = node->next;
+    }
+
+    node->next = NULL;
+    return node;
+}
+
+int getRemainingDocuments(Printer* head) {
+    if (head == NULL) return 0;
+    return head->documentsSize + getRemainingDocuments(head->right) + getRemainingDocuments(head->left);
+}
+
+int getTimeToProcessDocument(Document* document, PrintingDetails* details) {
+    return (document->rows - details->lowestRowSize) * details->ratio + details->lowestPrintingTime;
+}
+
+Printer* __findExactPrinterForDocument__(Printer* head, int* time) {
+    if (head == NULL) return NULL;
+    if (head->speed == *time) return head;
+
+    Printer* search;
+
+    if (*time >= head->speed) {
+        search = __findExactPrinterForDocument__(head->right, time);
+    } else {
+        search = __findExactPrinterForDocument__(head->left, time);
+    }
+
+    return search == NULL ? head : search;
+}
+
+Printer* findExactPrinterForDocument(Document* document, Printer* head, PrintingDetails* details) {
+    int timeToProcess = getTimeToProcessDocument(document, details);
+    return __findExactPrinterForDocument__(head, &timeToProcess);
+}
+
+Printer* __findApproximatePrinterForDocument__(Printer* head, int* time, int* lowerSpeed, int* upperSpeed) {
     if (head == NULL) return NULL;
 
     int timePerRow = head->speed;
@@ -235,31 +281,12 @@ Printer* findPrinterByApproximateTime(Printer* head, int* time, int* lowerSpeed,
     Printer* search;
 
     if (*time >= head->speed) {
-        search = findPrinterByApproximateTime(head->right, time, lowerSpeed, upperSpeed);
+        search = __findApproximatePrinterForDocument__(head->right, time, lowerSpeed, upperSpeed);
     } else {
-        search = findPrinterByApproximateTime(head->left, time, lowerSpeed, upperSpeed);
+        search = __findApproximatePrinterForDocument__(head->left, time, lowerSpeed, upperSpeed);
     }
 
     return search == NULL ? head : search;
-}
-
-Printer* findPrinterByExactTime(Printer* head, int* time) {
-    if (head == NULL) return NULL;
-    if (head->speed == *time) return head;
-
-    Printer* search;
-
-    if (*time >= head->speed) {
-        search = findPrinterByExactTime(head->right, time);
-    } else {
-        search = findPrinterByExactTime(head->left, time);
-    }
-
-    return search == NULL ? head : search;
-}
-
-int getTimeToProcessDocument(Document* document, PrintingDetails* details) {
-    return (document->rows - details->lowestRowSize) * details->ratio + details->lowestPrintingTime;
 }
 
 Printer* findApproximatePrinterForDocument(Document* document, Printer* head, PrintingDetails* details) {
@@ -267,65 +294,58 @@ Printer* findApproximatePrinterForDocument(Document* document, Printer* head, Pr
     int lower = timeToProcess - details->averagePrintingTime;
     int upper = timeToProcess + details->averagePrintingTime;
 
-    return findPrinterByApproximateTime(head, &timeToProcess, &lower, &upper);
+    return __findApproximatePrinterForDocument__(head, &timeToProcess, &lower, &upper);
 }
 
-Printer* findExactPrinterForDocument(Document* document, Printer* head, PrintingDetails* details) {
-    int timeToProcess = getTimeToProcessDocument(document, details);
-    return findPrinterByExactTime(head, &timeToProcess);
-}
+int increaseRowsSize(Printer* printer) {
+    int rowsToPrint = printer->speed;
+    int documentsRemoved = 0;
 
-void getTotalRemainingDocuments(Printer* head, int* sum) {
-    if (head == NULL) return;
+    do {
+        Node* node = printer->documentsQueue->head;
+        if (node == NULL) return documentsRemoved;
 
-    *sum += head->queueSize;
-    getTotalRemainingDocuments(head->right, sum);
-    getTotalRemainingDocuments(head->left, sum);
-}
-
-int increaseRowSize(Printer* printer) {
-    Node* node = printer->queue->head;
-    if (node) {
         Document* document = node->data;
-        document->printedRows += printer->speed;
+        document->printedRows += rowsToPrint;
+
+        rowsToPrint = 0;
 
         if (document->printedRows >= document->rows) {
-            node = q_pop_front(printer->queue);
-            free(document);
+            node = pop_front(printer->documentsQueue);
+
+            documentsRemoved++;
+            rowsToPrint += document->printedRows - document->rows;
+
+            free(node->data);
             free(node);
-            return 1;
         }
-    }
+    } while (rowsToPrint > 0);
 
-    return 0;
+    return documentsRemoved;
 }
 
-void processDocumentsHelper(Printer* head, int* shouldContinue) {
-    if (head->list == NULL) {
-        if (increaseRowSize(head)) {
-            head->queueSize -= 1;
-        }
-    } else {
-        for (Node* node = head->list->head; ;node = node->next) {
-            if (increaseRowSize(node->data)) {
-                head->queueSize -= 1;
-            }
-            if (node->next == head->list->head) break;
-        }
-    }
-
-    if (!(*shouldContinue)) *shouldContinue = head->queueSize > 0;
-}
-
-void processDocumentsRecursive(Printer* head, int* maxThreads, int* jobId, int* shouldContinue) {
+void __processDocuments__(Printer* head, int* maxThreads, int* jobId, int* shouldContinue, int* threadsResult) {
     if (head == NULL) return;
 
     if (head->id % (*maxThreads) == *jobId) {
-        processDocumentsHelper(head, shouldContinue);
+        if (head->printers == NULL) {
+            int removedDocuments = increaseRowsSize(head);
+            head->documentsSize -= removedDocuments;
+            threadsResult[*jobId] += removedDocuments;
+        } else {
+            for (Node* node = head->printers->head; ;node = node->next) {
+                int removedDocuments = increaseRowsSize(node->data);
+                head->documentsSize -= removedDocuments;
+                threadsResult[*jobId] += removedDocuments;
+                if (node->next == head->printers->head) break;
+            }
+        }
+
+        if (!(*shouldContinue)) *shouldContinue = head->documentsSize > 0;
     }
 
-    processDocumentsRecursive(head->right, maxThreads, jobId, shouldContinue);
-    processDocumentsRecursive(head->left, maxThreads, jobId, shouldContinue);
+    __processDocuments__(head->right, maxThreads, jobId, shouldContinue, threadsResult);
+    __processDocuments__(head->left, maxThreads, jobId, shouldContinue, threadsResult);
 }
 
 void* processDocuments(void* arg) {
@@ -334,47 +354,44 @@ void* processDocuments(void* arg) {
     int shouldContinue;
     do {
         shouldContinue = 0;
-        processDocumentsRecursive(details->head, &details->maxThreads, &details->jobId, &shouldContinue);
+        __processDocuments__(details->head, &details->maxThreads, &details->jobId, &shouldContinue, details->threadsResult);
         sleep(1);
     } while (shouldContinue);
 
     pthread_exit(NULL);
 }
 
-void delay(long milliseconds)
-{
-    clock_t start_time = clock();
-    while (clock() < start_time + milliseconds);
-}
-
-void createThreadsRecursive(Printer* head, int* maxThreads, int* threadsList) {
+void createThreads(Printer* root, Printer* head, int* maxThreads, int* threadsList, int* threadsResult) {
     if (head == NULL) return;
 
     if (!threadsList[head->id % (*maxThreads)]) {
-
         ThreadStartDetails* details = malloc(sizeof(ThreadStartDetails));
-        details->head = head;
+
+        details->head = root;
         details->jobId = head->id % (*maxThreads);
         details->maxThreads = *maxThreads;
+        details->threadsResult = threadsResult;
 
         pthread_t id;
         pthread_create(&id, NULL, processDocuments, details);
         threadsList[details->jobId] = 1;
     }
 
-    createThreadsRecursive(head->right, maxThreads, threadsList);
-    createThreadsRecursive(head->left, maxThreads, threadsList);
+    createThreads(root, head->right, maxThreads, threadsList, threadsResult);
+    createThreads(root, head->left, maxThreads, threadsList, threadsResult);
 }
 
 int main() {
     srand(time(NULL));
 
-    int totalPrinters, maxSpeed, totalDocuments, maxRows;
+    int totalPrinters, maxSpeed, minSpeed, totalDocuments, maxRows;
 
     printf("Care este numarul total de printere? ");
     scanf("%d", &totalPrinters);
-    printf("Care este viteza maxima a fiecarui printer? (rand/s) ");
+    printf("Care este viteza maxima a printerului? (rand/s) ");
     scanf("%d", &maxSpeed);
+    printf("Care este viteza minima a printerului? (rand/s) ");
+    scanf("%d", &minSpeed);
     printf("Care este numarul total de documente? ");
     scanf("%d", &totalDocuments);
     printf("Care este numarul maxim de randuri pentru fiecare document? ");
@@ -387,10 +404,11 @@ int main() {
      * Alocarea memoriei pentru printere si documente
      */
     PrintingDetails* details = malloc(sizeof(PrintingDetails));
-    Printer* head = allocatePrinters(totalPrinters, maxSpeed, details);
+
+    Printer* head = allocatePrinters(totalPrinters, minSpeed, maxSpeed, details);
     Queue* documents = allocateDocuments(totalDocuments, maxRows, details);
 
-    details->ratio = (double) (details->largestPrintingTime - details->lowestPrintingTime) / (details->lowestRowSize - details->largestRowSize);
+    details->ratio = (double) (details->largestPrintingTime - details->lowestPrintingTime) / (details->largestRowSize - details->lowestRowSize);
 
     clock_t end = clock();
     printf("Memoria a fost alocata in %.4lfs\n\n", (double) (end - start) / CLOCKS_PER_SEC);
@@ -401,58 +419,60 @@ int main() {
 
     system("pause");
     system("cls");
-    Node* node = q_pop_front(documents);
 
     printf("Se adauga toate documentele in lista de printare.\n\n");
     start = clock();
 
+    Node* node = pop_front(documents);
     while (node) {
         Printer* printer = findExactPrinterForDocument(node->data, head, details);
-        node->next = NULL;
+        printer->documentsSize += 1;
 
-        printer->queueSize += 1;
-
-        LinkedList* list = printer->list;
+        LinkedList* list = printer->printers;
         if (list != NULL) {
-            printer = list->current->data;
+            printer = (Printer*) list->current->data;
             list->current = list->current->next;
         }
 
-        q_push_back(printer->queue, node);
-        node = q_pop_front(documents);
+        push_back(printer->documentsQueue, node);
+        node = pop_front(documents);
     }
 
     end = clock();
-    printf("Documentele au fost adaugate in %.4lfs\n", (double) (end - start) / CLOCKS_PER_SEC);
+    printf("Documentele au fost adaugate in %.4lfs\n\n", (double) (end - start) / CLOCKS_PER_SEC);
+
     system("pause");
-
     system("cls");
-    printf("Care este numarul maxim de Thread-uri? ");
 
+    printf("Care este numarul maxim de Thread-uri? ");
     int maxThreads;
     scanf("%d", &maxThreads);
 
     int* threadsList = calloc(maxThreads, sizeof(int));
+    int* threadsResult = calloc(maxThreads, sizeof(int));
 
-    createThreadsRecursive(head, &maxThreads, threadsList);
+    createThreads(head, head, &maxThreads, threadsList, threadsResult);
 
-    int printedDocuments = 0;
-    getTotalRemainingDocuments(head, &printedDocuments);
+    int printedDocuments = getRemainingDocuments(head);
 
     start = clock();
     while (printedDocuments > 0) {
-        system("cls");
-        printf("Are loc procesul de printare...\n");
-
-        printedDocuments = 0;
-        getTotalRemainingDocuments(head, &printedDocuments);
-
-        printf("Documente printate: %d/%d", printedDocuments, totalDocuments);
         sleep(1);
+        system("cls");
+        printf("Are loc procesul de printare...\n\n");
+
+        printedDocuments = getRemainingDocuments(head);
+
+        for (int i = 0; i < maxThreads; i++) {
+            printf("Thread #%d, documente printate: %d\n", i, threadsResult[i]);
+        }
+
+        printf("\nDocumente ramase de printat: %d", printedDocuments);
     }
 
     end = clock();
-    printf("\nDocumentele au fost printate in %lfs",(double) (end - start) / CLOCKS_PER_SEC);
+    printf("\nDocumentele au fost printate in %lfs\n\n",(double) (end - start) / CLOCKS_PER_SEC);
+    system("pause");
 
     return 0;
 }
