@@ -30,6 +30,12 @@ typedef struct Transaction {
     char* city;
 } Transaction;
 
+typedef struct CountryRevenue {
+    char* country;
+    char* city;
+    double revenue;
+} CountryRevenue;
+
 int compare(const void* transaction1, const void* transaction2) {
     Transaction* t1 = ((Transaction*) transaction1);
     Transaction* t2= ((Transaction*) transaction2);
@@ -176,6 +182,13 @@ Category* getCategory(char* name, Category* categories, int size) {
     return NULL;
 }
 
+CountryRevenue* getCountryRevenue(char* country, CountryRevenue* countries, int size) {
+    for (int i = 0; i < size; i++) {
+        if (strcmp(country, countries[i].country) == 0) return &countries[i];
+    }
+    return NULL;
+}
+
 int main() {
     FILE* file = fopen("sales.csv", "r");
 
@@ -190,18 +203,22 @@ int main() {
     int maxSizeTransactions = 2,
             maxSizeProducts = 2,
             maxSizeCategories = 2,
+            maxSizeCountries = 2,
             multiplierTransactions = 2,
             multiplierProducts = 2,
             multiplierCategories = 2,
+            multiplierCountries = 2,
             sizeTransactions = 0,
             sizeProducts = 0,
             sizeCategories = 0,
+            sizeCountries = 0,
             minYear = INT_MAX,
             maxYear = INT_MIN;
 
     Transaction* transactions = malloc(sizeof(Transaction) * multiplierTransactions);
     Product* products = malloc(sizeof(Product) * multiplierProducts);
     Category* categories = malloc(sizeof(Category) * multiplierCategories);
+    CountryRevenue* countries = malloc(sizeof(CountryRevenue) * multiplierCountries);
 
     // Citirea produselor si definirea a doua variabile pe care le folosim pentru a crea un vector cu toti anii.
     while (readLine(file, &transactions[sizeTransactions])) {
@@ -244,9 +261,24 @@ int main() {
             categories = temp;
         }
 
+        if (sizeCountries == maxSizeCountries - 1) {
+            multiplierCountries *= 1.25;
+
+            CountryRevenue* temp = realloc(countries, sizeof(CountryRevenue) * maxSizeCountries);
+            if (temp == NULL) {
+                printf("\nNu se poate aloca memorie!");
+                exit(-1);
+            }
+
+            maxSizeCountries *= multiplierCountries;
+            countries = temp;
+        }
+
         Transaction transaction = transactions[sizeTransactions];
         Product* product = getProduct(transaction.name, products, sizeProducts);
         Category* category = getCategory(transaction.category, categories, sizeCategories);
+        CountryRevenue* countryRevenue = getCountryRevenue(transaction.country, countries, sizeCountries);
+
         if (product == NULL) {
             products[sizeProducts].name = transaction.name;
             products[sizeProducts].revenue = transaction.quantity * transaction.price;
@@ -364,6 +396,8 @@ int main() {
     }
 
     free(venit);
+
+    // Orașele cu cele mai mari vânzări pentru fiecare țară
 
     return 0;
 }
